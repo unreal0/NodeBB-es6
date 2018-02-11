@@ -1,0 +1,115 @@
+var async = require('async');
+
+var meta = require('../meta');
+var plugins = require('../plugins');
+var db = require('../database');
+
+
+module.exports = (Messaging) => {
+	Messaging.sendMessage = (uid, roomId, content, timestamp, callback) => {
+		async.waterfall([
+			(next) => {
+				Messaging.checkContent(content, next);
+			},
+			(next) => {
+				Messaging.isUserInRoom(uid, roomId, next);
+			},
+			(inRoom, next) => {
+				if (!inRoom) {
+					return next(new Error('[[error:not-allowed]]'));
+				}
+
+				Messaging.addMessage(uid, roomId, content, timestamp, next);
+			},
+		], callback);
+	};
+
+	Messaging.checkContent = (content, callback) => {
+		if (!content) {
+			return callback(new Error('[[error:invalid-chat-message]]'));
+		}
+		content = String(content);
+
+		var maximumChatMessageLength = (meta.config.maximumChatMessageLength || 1000);
+		if (content.length > maximumChatMessageLength) {
+			return callback(new Error('[[error:chat-message-too-long, ' + maximumChatMessageLength + ']]'));
+		}
+		callback();
+	};
+
+	Messaging.addMessage = (fromuid, roomId, content, timestamp, callback) => {
+		var mid;
+		var message;
+		var isNewSet;
+
+		async.waterfall([
+			(next) => {
+				Messaging.checkContent(content, next);
+			},
+			(next) => {
+				db.incrObjectField('global', 'nextMid', next);
+			},
+			(_mid, next) => {
+				mid = _mid;
+				message = {
+					content: String(content),
+					timestamp: timestamp,
+					fromuid: fromuid,
+					roomId: roomId,
+				};
+
+				plugins.fireHook('filter:messaging.save', message, next);
+			},
+			(message, next) => {
+				db.setObject('message:' + mid, message, next);
+			},
+			(next) => {
+				Messaging.isNewSet(fromuid, roomId, timestamp, next);
+			},
+			(_isNewSet, next) => {
+				isNewSet = _isNewSet;
+				db.getSortedSetRange('chat:room:' + roomId + ':uids', 0, -1, next);
+			},
+			(uids, next) => {
+				async.parallel([
+					async.apply(Messaging.addRoomToUsers, roomId, uids, timestamp),
+					async.apply(Messaging.addMessageToUsers, roomId, uids, mid, timestamp),
+					async.apply(Messaging.markUnread, uids, roomId),
+					async.apply(Messaging.addUsersToRoom, fromuid, [fromuid], roomId),
+				], next);
+			},
+			(results, next) => {
+				async.parallel({
+					markRead: async.apply(Messaging.markRead, fromuid, roomId),
+					messages: async.apply(Messaging.getMessagesData, [mid], fromuid, roomId, true),
+				}, next);
+			},
+			(results, next) => {
+				if (!results.messages || !results.messages[0]) {
+					return next(null, null);
+				}
+
+				results.messages[0].newSet = isNewSet;
+				results.messages[0].mid = mid;
+				results.messages[0].roomId = roomId;
+				next(null, results.messages[0]);
+			},
+		], callback);
+	};
+
+	Messaging.addRoomToUsers = (roomId, uids, timestamp, callback) => {
+		if (!uids.length) {
+			return callback();
+		}
+		var keys = uids.map(uid => 'uid:' + uid + ':chat:rooms');
+		db.sortedSetsAdd(keys, timestamp, roomId, callback);
+	};
+
+	Messaging.addMessageToUsers = (roomId, uids, mid, timestamp, callback) => {
+		if (!uids.length) {
+			return callback();
+		}
+		var keys = uids.map(uid => 'uid:' + uid + ':chat:room:' + roomId + ':mids');
+		db.sortedSetsAdd(keys, timestamp, mid, callback);
+	};
+};
