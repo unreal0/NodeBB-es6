@@ -1,5 +1,3 @@
-
-
 var async = require('async');
 
 var db = require('../database');

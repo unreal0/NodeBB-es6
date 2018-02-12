@@ -1,18 +1,11 @@
-'use strict';
-
-
 var meta = require('./meta');
 var nconf = require('nconf');
 
 var coverPhoto = module.exports;
 
-coverPhoto.getDefaultGroupCover = function (groupName) {
-	return getCover('groups', groupName);
-};
+coverPhoto.getDefaultGroupCover = (groupName) => getCover('groups', groupName);
 
-coverPhoto.getDefaultProfileCover = function (uid) {
-	return getCover('profile', parseInt(uid, 10));
-};
+coverPhoto.getDefaultProfileCover = (uid) => getCover('profile', parseInt(uid, 10));
 
 function getCover(type, id) {
 	if (meta.config[type + ':defaultCovers']) {

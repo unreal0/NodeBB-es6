@@ -192,6 +192,7 @@ Logger.io = (socket) => {
 Logger.io_one = (socket, uid) => {
 	/*
 	 * This function replaces a socket's .emit/.on functions in order to intercept events
+	 * 不能转换为箭头函数
 	 */
 	function override(method, name, errorMsg) {
 		return function () {

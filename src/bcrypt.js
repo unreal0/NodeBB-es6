@@ -1,11 +1,8 @@
-
-'use strict';
-
 var bcrypt = require('bcryptjs');
 var async = require('async');
 
 
-process.on('message', function (msg) {
+process.on('message', (msg) => {
 	if (msg.type === 'hash') {
 		hashPassword(msg.password, msg.rounds);
 	} else if (msg.type === 'compare') {
@@ -15,10 +12,10 @@ process.on('message', function (msg) {
 
 function hashPassword(password, rounds) {
 	async.waterfall([
-		function (next) {
+		(next) => {
 			bcrypt.genSalt(parseInt(rounds, 10), next);
 		},
-		function (salt, next) {
+		(salt, next) => {
 			bcrypt.hash(password, salt, next);
 		},
 	], done);

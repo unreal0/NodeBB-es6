@@ -4,7 +4,7 @@ var winston = require('winston');
 var EventEmitter = require('events').EventEmitter;
 
 var channelName;
-
+// 不能转换为箭头函数
 var PubSub = function () {
 	var self = this;
 	if (nconf.get('redis')) {
@@ -31,7 +31,7 @@ var PubSub = function () {
 };
 
 util.inherits(PubSub, EventEmitter);
-
+// 不能转换为箭头函数
 PubSub.prototype.publish = function (event, data) {
 	if (this.pubClient) {
 		this.pubClient.publish(channelName, JSON.stringify({ event: event, data: data }));

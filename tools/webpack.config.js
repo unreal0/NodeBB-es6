@@ -90,7 +90,7 @@ const serverConfig = {
 
 	output: {
 		...config.output,
-		filename: '../../app.js',
+		filename: '../app.js',
 		libraryTarget: 'commonjs2',
 	},
 

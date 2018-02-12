@@ -1,5 +1,3 @@
-'use strict';
-
 var fs = require('fs');
 var path = require('path');
 var async = require('async');
@@ -10,19 +8,19 @@ var file = require('../file');
 var Translator = require('../translator').Translator;
 
 function filterDirectories(directories) {
-	return directories.map(function (dir) {
+	return directories.map((dir) =>
 		// get the relative path
-		return dir.replace(/^.*(admin.*?).tpl$/, '$1');
-	}).filter(function (dir) {
+		dir.replace(/^.*(admin.*?).tpl$/, '$1')
+	).filter((dir) =>
 		// exclude .js files
 		// exclude partials
 		// only include subpaths
 		// exclude category.tpl, group.tpl, category-analytics.tpl
-		return !dir.endsWith('.js') &&
+		!dir.endsWith('.js') &&
 			!dir.includes('/partials/') &&
 			/\/.*\//.test(dir) &&
-			!/manage\/(category|group|category-analytics)$/.test(dir);
-	});
+			!/manage\/(category|group|category-analytics)$/.test(dir)
+	);
 }
 
 function getAdminNamespaces(callback) {

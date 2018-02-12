@@ -1,5 +1,3 @@
-'use strict';
-
 var cronJob = require('cron').CronJob;
 var async = require('async');
 var winston = require('winston');
@@ -16,14 +14,14 @@ var uniquevisitors = 0;
 
 var isCategory = /^(?:\/api)?\/category\/(\d+)/;
 
-new cronJob('*/10 * * * * *', function () {
+new cronJob('*/10 * * * * *', () => {
 	Analytics.writeData();
 }, null, true);
 
-Analytics.increment = function (keys, callback) {
+Analytics.increment = (keys, callback) => {
 	keys = Array.isArray(keys) ? keys : [keys];
 
-	keys.forEach(function (key) {
+	keys.forEach((key) => {
 		counters[key] = counters[key] || 0;
 		counters[key] += 1;
 	});
@@ -33,11 +31,11 @@ Analytics.increment = function (keys, callback) {
 	}
 };
 
-Analytics.pageView = function (payload) {
+Analytics.pageView = (payload) => {
 	pageViews += 1;
 
 	if (payload.ip) {
-		db.sortedSetScore('ip:recent', payload.ip, function (err, score) {
+		db.sortedSetScore('ip:recent', payload.ip, (err, score) => {
 			if (err) {
 				return;
 			}
@@ -63,7 +61,7 @@ Analytics.pageView = function (payload) {
 	}
 };
 
-Analytics.writeData = function (callback) {
+Analytics.writeData = (callback) => {
 	callback = callback || function () {};
 	var today = new Date();
 	var month = new Date();
@@ -98,7 +96,7 @@ Analytics.writeData = function (callback) {
 		}
 	}
 
-	async.parallel(dbQueue, function (err) {
+	async.parallel(dbQueue, (err) => {
 		if (err) {
 			winston.error('[analytics] Encountered error while writing analytics to data store', err);
 		}
@@ -106,7 +104,7 @@ Analytics.writeData = function (callback) {
 	});
 };
 
-Analytics.getHourlyStatsForSet = function (set, hour, numHours, callback) {
+Analytics.getHourlyStatsForSet = (set, hour, numHours, callback) => {
 	var terms = {};
 	var hoursArr = [];
 
@@ -118,19 +116,19 @@ Analytics.getHourlyStatsForSet = function (set, hour, numHours, callback) {
 		hour.setHours(hour.getHours() - 1, 0, 0, 0);
 	}
 
-	db.sortedSetScores(set, hoursArr, function (err, counts) {
+	db.sortedSetScores(set, hoursArr, (err, counts) => {
 		if (err) {
 			return callback(err);
 		}
 
-		hoursArr.forEach(function (term, index) {
+		hoursArr.forEach((term, index) => {
 			terms[term] = parseInt(counts[index], 10) || 0;
 		});
 
 		var termsArr = [];
 
 		hoursArr.reverse();
-		hoursArr.forEach(function (hour) {
+		hoursArr.forEach((hour) => {
 			termsArr.push(terms[hour]);
 		});
 
@@ -138,44 +136,40 @@ Analytics.getHourlyStatsForSet = function (set, hour, numHours, callback) {
 	});
 };
 
-Analytics.getDailyStatsForSet = function (set, day, numDays, callback) {
+Analytics.getDailyStatsForSet = (set, day, numDays, callback) => {
 	var daysArr = [];
 
 	day = new Date(day);
 	day.setDate(day.getDate() + 1);	// set the date to tomorrow, because getHourlyStatsForSet steps *backwards* 24 hours to sum up the values
 	day.setHours(0, 0, 0, 0);
 
-	async.whilst(function () {
+	async.whilst(() => {
 		numDays -= 1;
 		return numDays + 1;
-	}, function (next) {
-		Analytics.getHourlyStatsForSet(set, day.getTime() - (1000 * 60 * 60 * 24 * numDays), 24, function (err, day) {
+	}, (next) => {
+		Analytics.getHourlyStatsForSet(set, day.getTime() - (1000 * 60 * 60 * 24 * numDays), 24, (err, day) => {
 			if (err) {
 				return next(err);
 			}
 
-			daysArr.push(day.reduce(function (cur, next) {
-				return cur + next;
-			}));
+			daysArr.push(day.reduce((cur, next) => cur + next));
 			next();
 		});
-	}, function (err) {
+	}, (err) => {
 		callback(err, daysArr);
 	});
 };
 
-Analytics.getUnwrittenPageviews = function () {
-	return pageViews;
-};
+Analytics.getUnwrittenPageviews = () => pageViews;
 
-Analytics.getSummary = function (callback) {
+Analytics.getSummary = (callback) => {
 	var today = new Date();
 	today.setHours(0, 0, 0, 0);
 
 	async.parallel({
 		seven: async.apply(Analytics.getDailyStatsForSet, 'analytics:pageviews', today, 7),
 		thirty: async.apply(Analytics.getDailyStatsForSet, 'analytics:pageviews', today, 30),
-	}, function (err, scores) {
+	}, (err, scores) => {
 		if (err) {
 			return callback(null, {
 				seven: 0,
@@ -183,11 +177,11 @@ Analytics.getSummary = function (callback) {
 			});
 		}
 		callback(null, {
-			seven: scores.seven.reduce(function (sum, cur) {
+			seven: scores.seven.reduce((sum, cur) => {
 				sum += cur;
 				return sum;
 			}, 0),
-			thirty: scores.thirty.reduce(function (sum, cur) {
+			thirty: scores.thirty.reduce((sum, cur) => {
 				sum += cur;
 				return sum;
 			}, 0),
@@ -195,7 +189,7 @@ Analytics.getSummary = function (callback) {
 	});
 };
 
-Analytics.getCategoryAnalytics = function (cid, callback) {
+Analytics.getCategoryAnalytics = (cid, callback) => {
 	async.parallel({
 		'pageviews:hourly': async.apply(Analytics.getHourlyStatsForSet, 'analytics:pageviews:byCid:' + cid, Date.now(), 24),
 		'pageviews:daily': async.apply(Analytics.getDailyStatsForSet, 'analytics:pageviews:byCid:' + cid, Date.now(), 30),
@@ -204,14 +198,14 @@ Analytics.getCategoryAnalytics = function (cid, callback) {
 	}, callback);
 };
 
-Analytics.getErrorAnalytics = function (callback) {
+Analytics.getErrorAnalytics = (callback) => {
 	async.parallel({
 		'not-found': async.apply(Analytics.getDailyStatsForSet, 'analytics:errors:404', Date.now(), 7),
 		toobusy: async.apply(Analytics.getDailyStatsForSet, 'analytics:errors:503', Date.now(), 7),
 	}, callback);
 };
 
-Analytics.getBlacklistAnalytics = function (callback) {
+Analytics.getBlacklistAnalytics = (callback) => {
 	async.parallel({
 		daily: async.apply(Analytics.getDailyStatsForSet, 'analytics:blacklist', Date.now(), 7),
 		hourly: async.apply(Analytics.getHourlyStatsForSet, 'analytics:blacklist', Date.now(), 24),

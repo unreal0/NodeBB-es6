@@ -1,13 +1,13 @@
-'use strict';
+
 
 var eventEmitter = new (require('events')).EventEmitter();
 
 
-eventEmitter.all = function (events, callback) {
+eventEmitter.all = (events, callback) => {
 	var eventList = events.slice(0);
 
 	events.forEach(function onEvent(event) {
-		eventEmitter.on(event, function () {
+		eventEmitter.on(event, () => {
 			var index = eventList.indexOf(event);
 			if (index === -1) {
 				return;
@@ -20,9 +20,9 @@ eventEmitter.all = function (events, callback) {
 	});
 };
 
-eventEmitter.any = function (events, callback) {
+eventEmitter.any = (events, callback) => {
 	events.forEach(function onEvent(event) {
-		eventEmitter.on(event, function () {
+		eventEmitter.on(event, () => {
 			if (events !== null) {
 				callback();
 			}

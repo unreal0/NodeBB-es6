@@ -1,14 +1,10 @@
-
-
-'use strict';
-
 var async = require('async');
 var db = require('./database');
 var utils = require('./utils');
 
 var DEFAULT_BATCH_SIZE = 100;
 
-exports.processSortedSet = function (setKey, process, options, callback) {
+exports.processSortedSet = (setKey, process, options, callback) => {
 	if (typeof options === 'function') {
 		callback = options;
 		options = {};
@@ -23,7 +19,7 @@ exports.processSortedSet = function (setKey, process, options, callback) {
 
 	// Progress bar handling (upgrade scripts)
 	if (options.progress) {
-		db.sortedSetCard(setKey, function (err, total) {
+		db.sortedSetCard(setKey, (err, total) => {
 			if (!err) {
 				options.progress.total = total;
 			}
@@ -45,24 +41,22 @@ exports.processSortedSet = function (setKey, process, options, callback) {
 	var done = false;
 
 	async.whilst(
-		function () {
-			return !done;
-		},
-		function (next) {
+		() => !done,
+		(next) => {
 			async.waterfall([
-				function (next) {
+				(next) => {
 					db.getSortedSetRange(setKey, start, stop, next);
 				},
-				function (ids, _next) {
+				(ids, _next) => {
 					if (!ids.length || options.doneIf(start, stop, ids)) {
 						done = true;
 						return next();
 					}
-					process(ids, function (err) {
+					process(ids, (err) => {
 						_next(err);
 					});
 				},
-				function (next) {
+				(next) => {
 					start += utils.isNumber(options.alwaysStartAt) ? options.alwaysStartAt : options.batch + 1;
 					stop = start + options.batch;
 
@@ -78,7 +72,7 @@ exports.processSortedSet = function (setKey, process, options, callback) {
 	);
 };
 
-exports.processArray = function (array, process, options, callback) {
+exports.processArray = (array, process, options, callback) => {
 	if (typeof options === 'function') {
 		callback = options;
 		options = {};
@@ -99,22 +93,20 @@ exports.processArray = function (array, process, options, callback) {
 	var done = false;
 
 	async.whilst(
-		function () {
-			return !done;
-		},
-		function (next) {
+		() => !done,
+		(next) => {
 			var currentBatch = array.slice(start, start + batch);
 			if (!currentBatch.length) {
 				done = true;
 				return next();
 			}
 			async.waterfall([
-				function (next) {
-					process(currentBatch, function (err) {
+				(next) => {
+					process(currentBatch, (err) => {
 						next(err);
 					});
 				},
-				function (next) {
+				(next) => {
 					start += batch;
 					if (options.interval) {
 						setTimeout(next, options.interval);
@@ -124,7 +116,7 @@ exports.processArray = function (array, process, options, callback) {
 				},
 			], next);
 		},
-		function (err) {
+		(err) => {
 			callback(err);
 		}
 	);
