@@ -1,6 +1,3 @@
-
-'use strict';
-
 var async = require('async');
 var validator = require('validator');
 var winston = require('winston');
@@ -12,52 +9,50 @@ var utils = require('./utils');
 
 var events = module.exports;
 
-events.log = function (data, callback) {
+events.log = (data, callback) => {
 	callback = callback || function () {};
 
 	async.waterfall([
-		function (next) {
+		(next) => {
 			db.incrObjectField('global', 'nextEid', next);
 		},
-		function (eid, next) {
+		(eid, next) => {
 			data.timestamp = Date.now();
 			data.eid = eid;
 
 			async.parallel([
-				function (next) {
+				(next) => {
 					db.sortedSetAdd('events:time', data.timestamp, eid, next);
 				},
-				function (next) {
+				(next) => {
 					db.setObject('event:' + eid, data, next);
 				},
 			], next);
 		},
-	], function (err) {
+	], (err) => {
 		callback(err);
 	});
 };
 
-events.getEvents = function (start, stop, callback) {
+events.getEvents = (start, stop, callback) => {
 	async.waterfall([
-		function (next) {
+		(next) => {
 			db.getSortedSetRevRange('events:time', start, stop, next);
 		},
-		function (eids, next) {
-			var keys = eids.map(function (eid) {
-				return 'event:' + eid;
-			});
+		(eids, next) => {
+			var keys = eids.map((eid) => 'event:' + eid);
 			db.getObjects(keys, next);
 		},
-		function (eventsData, next) {
+		(eventsData, next) => {
 			eventsData = eventsData.filter(Boolean);
 			addUserData(eventsData, 'uid', 'user', next);
 		},
-		function (eventsData, next) {
+		(eventsData, next) => {
 			addUserData(eventsData, 'targetUid', 'targetUser', next);
 		},
-		function (eventsData, next) {
-			eventsData.forEach(function (event) {
-				Object.keys(event).forEach(function (key) {
+		(eventsData, next) => {
+			eventsData.forEach((event) => {
+				Object.keys(event).forEach((key) => {
 					if (typeof event[key] === 'string') {
 						event[key] = validator.escape(String(event[key] || ''));
 					}
@@ -77,37 +72,33 @@ events.getEvents = function (start, stop, callback) {
 };
 
 function addUserData(eventsData, field, objectName, callback) {
-	var uids = eventsData.map(function (event) {
-		return event && event[field];
-	}).filter(function (uid, index, array) {
-		return uid && array.indexOf(uid) === index;
-	});
+	var uids = eventsData.map((event) => event && event[field]).filter((uid, index, array) => uid && array.indexOf(uid) === index);
 
 	if (!uids.length) {
 		return callback(null, eventsData);
 	}
 
 	async.waterfall([
-		function (next) {
+		(next) => {
 			async.parallel({
-				isAdmin: function (next) {
+				isAdmin: (next) => {
 					user.isAdministrator(uids, next);
 				},
-				userData: function (next) {
+				userData: (next) => {
 					user.getUsersFields(uids, ['username', 'userslug', 'picture'], next);
 				},
 			}, next);
 		},
-		function (results, next) {
+		(results, next) => {
 			var userData = results.userData;
 
 			var map = {};
-			userData.forEach(function (user, index) {
+			userData.forEach((user, index) => {
 				user.isAdmin = results.isAdmin[index];
 				map[user.uid] = user;
 			});
 
-			eventsData.forEach(function (event) {
+			eventsData.forEach((event) => {
 				if (map[event[field]]) {
 					event[objectName] = map[event[field]];
 				}
@@ -117,38 +108,36 @@ function addUserData(eventsData, field, objectName, callback) {
 	], callback);
 }
 
-events.deleteEvents = function (eids, callback) {
+events.deleteEvents = (eids, callback) => {
 	callback = callback || function () {};
 	async.parallel([
-		function (next) {
-			var keys = eids.map(function (eid) {
-				return 'event:' + eid;
-			});
+		(next) => {
+			var keys = eids.map((eid) => 'event:' + eid);
 			db.deleteAll(keys, next);
 		},
-		function (next) {
+		(next) => {
 			db.sortedSetRemove('events:time', eids, next);
 		},
 	], callback);
 };
 
-events.deleteAll = function (callback) {
+events.deleteAll = (callback) => {
 	callback = callback || function () {};
 
-	batch.processSortedSet('events:time', function (eids, next) {
+	batch.processSortedSet('events:time', (eids, next) => {
 		events.deleteEvents(eids, next);
 	}, { alwaysStartAt: 0 }, callback);
 };
 
-events.output = function () {
+events.output = () => {
 	console.log('\nDisplaying last ten administrative events...'.bold);
-	events.getEvents(0, 9, function (err, events) {
+	events.getEvents(0, 9, (err, events) => {
 		if (err) {
 			winston.error('Error fetching events', err);
 			throw err;
 		}
 
-		events.forEach(function (event) {
+		events.forEach((event) => {
 			console.log('  * ' + String(event.timestampISO).green + ' ' + String(event.type).yellow + (event.text ? ' ' + event.text : '') + ' (uid: '.reset + (event.uid ? event.uid : 0) + ')');
 		});
 
